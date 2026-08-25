@@ -56,7 +56,6 @@ static NSString *spoofedModelName(void) {
 // qui rappelle sysctlbyname/uname. Sans garde -> re-entree dans dispatch_once -> deadlock au lancement.
 static int gSpoofDepth = 0;
 static int (*cz_orig_uname)(struct utsname *) = NULL;
-static int (*cz_orig_sysctlbyname)(const char *, void *, size_t *, void *, size_t) = NULL;
 
 static int cz_uname(struct utsname *name) {
     if (gSpoofDepth > 0) {
@@ -77,35 +76,6 @@ static int cz_uname(struct utsname *name) {
 }
 
 DYLD_INTERPOSE(cz_uname, uname);
-
-// Spoof aussi sysctl hw.machine / hw.model (Instagram les lit souvent directement).
-static int cz_sysctlbyname(const char *name, void *oldp, size_t *oldlenp, void *newp, size_t newlen) {
-    if (gSpoofDepth == 0) {
-        gSpoofDepth++;
-        const char *s = NULL;
-        if (name && oldp) {
-            if (strcmp(name, "hw.machine") == 0) s = [spoofedModelIdentifier() UTF8String] ?: "iPhone15,4";
-            else if (strcmp(name, "hw.model") == 0) s = [spoofedModelName() UTF8String] ?: "iPhone";
-        }
-        if (s) {
-            size_t need = strlen(s) + 1;
-            size_t cap = oldlenp ? *oldlenp : 0;
-            if (cap > 0) memcpy(oldp, s, need < cap ? need : cap);
-            if (oldlenp) *oldlenp = need;
-            gSpoofDepth--;
-            return 0;
-        }
-        gSpoofDepth--; // pas de spoof pour ce nom -> original
-    }
-    if (!cz_orig_sysctlbyname) {
-        cz_orig_sysctlbyname = (int (*)(const char *, void *, size_t *, void *, size_t))
-            dlsym(RTLD_NEXT, "sysctlbyname");
-    }
-    if (cz_orig_sysctlbyname) return cz_orig_sysctlbyname(name, oldp, oldlenp, newp, newlen);
-    return -1;
-}
-
-DYLD_INTERPOSE(cz_sysctlbyname, sysctlbyname);
 
 @implementation DeviceProfile
 + (void)applyHooks {
