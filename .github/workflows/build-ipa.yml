@@ -53,7 +53,7 @@ jobs:
       - name: Injecter la dylib (Sideloadly re-signera tout a l'install)
         run: |
           cd work
-          insert_dylib --inplace --weak @executable_path/Frameworks/Tweak.dylib Payload/Instagram.app/Instagram
+          insert_dylib --inplace --weak --all-yes @executable_path/Frameworks/Tweak.dylib Payload/Instagram.app/Instagram
           echo "Injection terminee"
 
       - name: Re-paqueter l'IPA
