@@ -9,9 +9,11 @@
 #import <objc/runtime.h>
 #import <MapKit/MapKit.h>
 
-@implementation LocationSpoofer
+@interface LocationSpoofer ()
++ (void)swizzleDelegateCallback:(Class)dcls sel:(SEL)sel;
+@end
 
-+ (void)swizzleDelegateCallback:(Class)dcls sel:(SEL)sel; // declaration anticipee
+@implementation LocationSpoofer
 
 static CLLocation *gCachedLoc = nil;
 
