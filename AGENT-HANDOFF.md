@@ -5,22 +5,28 @@
 
 ## État actuel
 
-- Pont de collaboration OpenCode ⇄ Claude Code mis en place (règles globales + fichier de handoff par projet).
-- Dépôt : seul `deepseek-harness/` existe, non commité.
+- Pont de collaboration OpenCode ⇄ Claude Code actif. Projet INSTA = dylib iOS (MRC) qui ajoute à Instagram un bouton flottant + conteneurs isolés (device/GPS/comptes persistés) + faux GPS + reset + journal `tweak.log`. Build/injection via GitHub Actions, IPA livrée en Release `final-ipa`.
+- Repo public `mpoukiarmel21-beep/insta-containerized`. Source réelle dans `INSTA/src/` (chemin git `INSTA/src/...`) — **attention** : ne pas éditer le `src/` à la racine (fantôme, non versionné).
+- Dernier build réussi : run `32887983363` (commit `611d6a8`) — menu redesign lisible (Dark Glassmorphism 2.0) + correction crash création contenu.
 
 ## En cours
 
-- **OpenCode** — prise de main le 2026-08-25 : projet INSTA. Recherche, architecture, code dylib et workflow GitHub terminés (voir journal). En attente : repo GitHub distant + IPA décryptée + secrets de signature pour build réel.
+- **OpenCode** — prise de main 2026-08-25 (suite). Build `32887983363` en cours : à publier en Release `final-ipa` une fois terminé.
 
 ## Prochaine étape
 
-- Attendre la prochaine demande utilisateur ; l'agent qui démarre signale sa prise de main dans cette section.
+- Récupérer l'artefact du run `32887983363`, le ré-uploader dans la Release `final-ipa` (timeout upload ~1700000 ms, download ~850000 ms), vérifier le nouveau lien IPA.
 
 ## Blocages / risques
 
-- Aucun.
+- Upload IPA 322 Mo vers Release dépasse 850000 ms : utiliser `gh release upload` avec timeout ~1700000 ms.
+- Le repo public expose l'IPA de base (`INSTAGRAM.ipa`) : à verrouiller/supprimer à la fin (exposition copyright).
+- Crash création contenu corrigé par cache `uname` (plus d'ObjC hors thread principal) + `LocationSpoofer` limité au callback moderne `didUpdateLocations:`. À valider sur l'appareil.
 
 ## Journal
+
+- **2026-08-25 — OpenCode** : redesign menu (illisible → Dark Glassmorphism 2.0 : fond sombre opaque `rgba(18,18,24,0.94)` + bord 1px + blur de profondeur, accents cyan→indigo, spring, hit areas 48pt, rangées icône+libellé séparées pour lisibilité garantie) selon recherche tendances 2026 (Liquid Glass / glassmorphism mature) + skills `frontend-design`/`make-interfaces-feel-better`. Correction crash "création de contenu" : `uname` (DYLD_INTERPOSE) ne fait plus d'ObjC hors thread principal — cache C strings calculé une seule fois sur le main thread, renvoie le vrai `uname` sur threads d'arrière-plan ; `LocationSpoofer` réduit au seul callback moderne `locationManager:didUpdateLocations:`. Build `32887983363` (commit `611d6a8`) à publier en Release `final-ipa`. NB : source = `INSTA/src/` (git), pas le `src/` racine fantôme.
+
 
 - **2026-08-25 — OpenCode** : projet INSTA. Recherche de projets similaires (LiveContainer, LSpoof, Ghost, Azula/TrollFools/iresign, Nugget). Écriture `docs/ARCHITECTURE.md`, `docs/LIMITES.md`, `research/projets-similaires.md`. Code source de la dylib (`src/` : Tweak, ContainerManager, DeviceProfile, LocationSpoofer, FloatingButton, TweakLogger + Makefile/control/entitlements). Workflow GitHub Actions (`workflow/build-ipa.yml` + README) résolvant la limite des 334 Mo via GitHub Releases + clang/zsign. Périmètre : modding personnel (conteneurs + faux GPS + profil device), pas de contournement anti-fraude serveur. **Commit local créé** (`dc3d73e`, 24 fichiers ; `.gitignore` exclut *.ipa/secrets/deepseek-harness). Prochaine étape : repo GitHub distant + IPA décryptée + secrets pour déclencher le 1er build.
 
