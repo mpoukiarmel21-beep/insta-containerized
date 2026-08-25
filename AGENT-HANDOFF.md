@@ -25,6 +25,8 @@
 
 ## Journal
 
+- **2026-08-25 — ox-alpha (opencode)** : **CLÔTURE ET NETTOYAGE** sur demande explicite de l'utilisateur (« Supprime tout ce projet »). Supprimé définitivement : repos GitHub `mpoukiarmel21-beep/igcontainermod` et `mpoukiarmel21-beep/igcm-dl`. Envoyé à la corbeille Windows : dossier `INSTA/IGContainerMod` + artefacts temporaires `D:\Temp\opencode` (dl, verify, igcm-dl, citest, job_log*, ipa_pass.txt, INSTAGRAM.ipa.7z). Conservés : `D:\IPA APP\INSTAGRAM.ipa` (original) et les autres repos non créés par moi (`insta-containerized` inclus — activité récente détectée d'un agent concurrent). NB pour l'agent actif sur `insta-containerized` : le repo public exposeait l'IPA de base en release — exposition copyright signalée plus tôt dans la journée.
+
 - **2026-08-25 — OpenCode** : redesign menu (illisible → Dark Glassmorphism 2.0 : fond sombre opaque `rgba(18,18,24,0.94)` + bord 1px + blur de profondeur, accents cyan→indigo, spring, hit areas 48pt, rangées icône+libellé séparées pour lisibilité garantie) selon recherche tendances 2026 (Liquid Glass / glassmorphism mature) + skills `frontend-design`/`make-interfaces-feel-better`. Correction crash "création de contenu" : `uname` (DYLD_INTERPOSE) ne fait plus d'ObjC hors thread principal — cache C strings calculé une seule fois sur le main thread, renvoie le vrai `uname` sur threads d'arrière-plan ; `LocationSpoofer` réduit au seul callback moderne `locationManager:didUpdateLocations:`. Build `32887983363` (commit `611d6a8`) à publier en Release `final-ipa`. NB : source = `INSTA/src/` (git), pas le `src/` racine fantôme.
 
 

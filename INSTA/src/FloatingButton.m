@@ -32,7 +32,7 @@
 #define CACCENT()  [UIColor colorWithRed:0.404f green:0.906f blue:0.976f alpha:1.0f] // cyan #67E8F9
 #define CINDIGO()  [UIColor colorWithRed:0.388f green:0.400f blue:0.945f alpha:1.0f] // indigo #6366F1
 #define CPANEL()   [UIColor colorWithRed:0.051f green:0.063f blue:0.086f alpha:0.93f] // #0D1016 @93%
-#define CW(alpha)  [UIColor colorWithWhite:1.0f alpha:(alpha)]
+static inline UIColor *CWH(CGFloat a){ return [UIColor colorWithWhite:1.0f alpha:a]; }
 
 static UIButton *gButton = nil;
 static UIView   *gMenu   = nil;
@@ -150,7 +150,7 @@ static UIViewController *topController(void) {
     b.layer.shadowRadius = 16;
     b.layer.shadowOffset = CGSizeMake(0, 0);
     b.layer.shadowPath = [UIBezierPath bezierPathWithArcCenter:CGPointMake(size/2.0, size/2.0)
-                                                        radius:size/2.0 - 1 startAngle:0 endAngle:2*M_PI].CGPath;
+                                                         radius:size/2.0 - 1 startAngle:0 endAngle:2*M_PI clockwise:YES].CGPath;
 
     CAGradientLayer *grad = [CAGradientLayer layer];
     grad.frame = CGRectMake(0, 0, size, size);
@@ -212,7 +212,7 @@ static UIViewController *topController(void) {
     gMenu.backgroundColor = CPANEL();          // couche solide : lisibilite garantie
     gMenu.layer.cornerRadius = 24;
     gMenu.layer.borderWidth = 1.0;
-    gMenu.layer.borderColor = CW(0.14).CGColor; // bordure hairline (pas d'ombre-separateur)
+    gMenu.layer.borderColor = CWH(0.14).CGColor; // bordure hairline (pas d'ombre-separateur)
     gMenu.layer.shadowColor = [UIColor blackColor].CGColor;
     gMenu.layer.shadowOpacity = 0.55;
     gMenu.layer.shadowRadius = 26;
@@ -224,11 +224,11 @@ static UIViewController *topController(void) {
     // Retourne une vue retenue (+1) : l'appelant la release apres addSubview.
     UIView *chip = [[UIView alloc] initWithFrame:CGRectMake(16, 11, 30, 30)];
     chip.layer.cornerRadius = 9;
-    chip.backgroundColor = CW(0.07);
+    chip.backgroundColor = CWH(0.07);
 
     UIImage *img = [[UIImage systemImageNamed:symbol]
         imageWithConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:13.5
-                                                                                   weight:UIImageSymbolConfigurationWeightMedium]];
+                                                                                weight:UIImageSymbolWeightMedium]];
     UIImageView *iv = [[UIImageView alloc] initWithImage:img];
     iv.frame = chip.bounds;
     iv.contentMode = UIViewContentModeCenter;
@@ -251,14 +251,14 @@ static UIViewController *topController(void) {
 
     UILabel *lab = [[UILabel alloc] initWithFrame:CGRectMake(58, 0, menu.bounds.size.width - 58 - 14, rowH)];
     lab.text = title;
-    lab.textColor = CW(0.96);                       // couche solide : blanc plein
+    lab.textColor = CWH(0.96);                       // couche solide : blanc plein
     lab.font = [UIFont systemFontOfSize:15.5 weight:UIFontWeightMedium];
     lab.textAlignment = NSTextAlignmentLeft;
     [row addSubview:lab]; [lab release];
 
     if (!last) {
         UIView *sep = [[UIView alloc] initWithFrame:CGRectMake(58, rowH - 0.5, menu.bounds.size.width - 58 - 16, 0.5)];
-        sep.backgroundColor = CW(0.07);
+        sep.backgroundColor = CWH(0.07);
         sep.autoresizingMask = UIViewAutoresizingFlexibleWidth;
         [row addSubview:sep]; [sep release];
     }
@@ -276,7 +276,7 @@ static UIViewController *topController(void) {
     return y + rowH;
 }
 
-- (void)rowHighlightOn:(UIButton *)b { b.backgroundColor = CW(0.09); }
+- (void)rowHighlightOn:(UIButton *)b { b.backgroundColor = CWH(0.09); }
 - (void)rowHighlightOff:(UIButton *)b { b.backgroundColor = [UIColor clearColor]; }
 
 #pragma mark - Ouverture / fermeture
@@ -312,7 +312,7 @@ static UIViewController *topController(void) {
         initWithString:@"CONTENEUR ACTIF"
             attributes:@{ NSFontAttributeName      : [UIFont systemFontOfSize:10.5 weight:UIFontWeightSemibold],
                           NSKernAttributeName      : @1.8,
-                          NSForegroundColorAttributeName : CW(0.45) }];
+                          NSForegroundColorAttributeName : CWH(0.45) }];
     [gMenu addSubview:eyebrow];
     [eyebrow release];
 
@@ -328,7 +328,7 @@ static UIViewController *topController(void) {
     BOOL gpsOn = cc.locationEnabled;
     UIView *dot = [[UIView alloc] initWithFrame:CGRectMake(W - 34, 33, 8, 8)];
     dot.layer.cornerRadius = 4;
-    dot.backgroundColor = gpsOn ? CACCENT() : CW(0.22);
+    dot.backgroundColor = gpsOn ? CACCENT() : CWH(0.22);
     dot.layer.shadowColor = CACCENT().CGColor;
     dot.layer.shadowOpacity = gpsOn ? 0.9 : 0.0;
     dot.layer.shadowRadius = 4;
@@ -366,7 +366,7 @@ static UIViewController *topController(void) {
         initWithString:@"CONTAINERIZER"
             attributes:@{ NSFontAttributeName : [UIFont monospacedSystemFontOfSize:8.5 weight:UIFontWeightMedium],
                           NSKernAttributeName : @3.0,
-                          NSForegroundColorAttributeName : CW(0.30) }];
+                          NSForegroundColorAttributeName : CWH(0.30) }];
     foot.textAlignment = NSTextAlignmentCenter;
     [gMenu addSubview:foot];
     [foot release];
@@ -515,7 +515,7 @@ static UIViewController *topController(void) {
 
 - (void)logsAction {
     [self hideMenu];
-    NSString *log = [TweakLogger recentLog];
+    NSString *log = [[TweakLogger shared] recentLog];
     UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"Journal"
                                                                message:log ?: @"(vide)"
                                                         preferredStyle:UIAlertControllerStyleAlert];

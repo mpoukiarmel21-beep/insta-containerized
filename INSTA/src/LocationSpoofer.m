@@ -11,6 +11,8 @@
 
 @implementation LocationSpoofer
 
++ (void)swizzleDelegateCallback:(Class)dcls sel:(SEL)sel; // declaration anticipee
+
 static CLLocation *gCachedLoc = nil;
 
 + (CLLocation *)currentSpoofedLocation {
