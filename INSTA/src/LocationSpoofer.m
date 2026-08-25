@@ -177,6 +177,7 @@
     c.locationEnabled = YES;
     [[ContainerManager shared] updateContainer:c];
     [[TweakLogger shared] log:@"Faux GPS activé pour %@ : %f,%f", c.name, c.latitude, c.longitude];
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"CZContainerizerRestoreOverlay" object:nil];
     [self dismissViewControllerAnimated:YES completion:nil];
 }
 
@@ -185,6 +186,7 @@
     c.locationEnabled = NO;
     [[ContainerManager shared] updateContainer:c];
     [[TweakLogger shared] log:@"Faux GPS désactivé pour %@", c.name];
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"CZContainerizerRestoreOverlay" object:nil];
     [self dismissViewControllerAnimated:YES completion:nil];
 }
 

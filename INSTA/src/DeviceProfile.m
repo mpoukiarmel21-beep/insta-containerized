@@ -7,6 +7,8 @@
 #import "ContainerManager.h"
 #import "TweakLogger.h"
 #import <sys/utsname.h>
+#import <sys/sysctl.h>
+#import <dlfcn.h>
 #import <objc/runtime.h>
 
 #if __has_include(<mach-o/dyld_interpose.h>)
@@ -62,6 +64,33 @@ static int cz_uname(struct utsname *name) {
 }
 
 DYLD_INTERPOSE(cz_uname, uname);
+
+// Spoof aussi sysctl hw.machine / hw.model (Instagram les lit souvent directement).
+static int (*cz_orig_sysctlbyname)(const char *, void *, size_t *, void *, size_t) = NULL;
+
+static int cz_sysctlbyname(const char *name, void *oldp, size_t *oldlenp, void *newp, size_t newlen) {
+    if (name && oldp) {
+        const char *s = NULL;
+        if (strcmp(name, "hw.machine") == 0) s = [spoofedModelIdentifier() UTF8String] ?: "iPhone15,4";
+        else if (strcmp(name, "hw.model") == 0) s = [spoofedModelName() UTF8String] ?: "iPhone";
+        if (s) {
+            size_t need = strlen(s) + 1;
+            size_t cap = oldlenp ? *oldlenp : 0;
+            size_t copy = need < cap ? need : cap;
+            if (cap > 0) memcpy(oldp, s, copy);
+            if (oldlenp) *oldlenp = need;
+            return 0;
+        }
+    }
+    if (!cz_orig_sysctlbyname) {
+        cz_orig_sysctlbyname = (int (*)(const char *, void *, size_t *, void *, size_t))
+            dlsym(RTLD_NEXT, "sysctlbyname");
+    }
+    if (cz_orig_sysctlbyname) return cz_orig_sysctlbyname(name, oldp, oldlenp, newp, newlen);
+    return -1;
+}
+
+DYLD_INTERPOSE(cz_sysctlbyname, sysctlbyname);
 
 @implementation DeviceProfile
 + (void)applyHooks {
