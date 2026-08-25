@@ -1,0 +1,9 @@
+Package: com.containerizer.tweak
+Name: Containerizer for Instagram
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: Conteneurs isolés + faux GPS + profil device par conteneur (usage personnel).
+Maintainer: INSTA project
+Author: OpenCode
+Section: Tweaks
+Depends: mobilesubstrate

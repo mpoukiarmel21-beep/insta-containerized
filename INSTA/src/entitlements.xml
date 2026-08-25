@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>get-task-allow</key>
+    <true/>
+    <key>application-identifier</key>
+    <string>com.containerizer.tweak</string>
+    <key>keychain-access-groups</key>
+    <array>
+        <string>com.containerizer.tweak</string>
+        <!-- Groupes par conteneur (jusqu'à 128, inspiration LiveContainer) -->
+        <string>com.containerizer.tweak.container.001</string>
+        <string>com.containerizer.tweak.container.002</string>
+        <string>com.containerizer.tweak.container.003</string>
+        <string>com.containerizer.tweak.container.004</string>
+        <string>com.containerizer.tweak.container.005</string>
+        <string>com.containerizer.tweak.container.006</string>
+        <string>com.containerizer.tweak.container.007</string>
+        <string>com.containerizer.tweak.container.008</string>
+        <string>com.containerizer.tweak.container.009</string>
+        <string>com.containerizer.tweak.container.010</string>
+        <string>com.containerizer.tweak.container.011</string>
+        <string>com.containerizer.tweak.container.012</string>
+        <string>com.containerizer.tweak.container.013</string>
+        <string>com.containerizer.tweak.container.014</string>
+        <string>com.containerizer.tweak.container.015</string>
+        <string>com.containerizer.tweak.container.016</string>
+        <string>com.containerizer.tweak.container.017</string>
+        <string>com.containerizer.tweak.container.018</string>
+        <string>com.containerizer.tweak.container.019</string>
+        <string>com.containerizer.tweak.container.020</string>
+        <string>com.containerizer.tweak.container.021</string>
+        <string>com.containerizer.tweak.container.022</string>
+        <string>com.containerizer.tweak.container.023</string>
+        <string>com.containerizer.tweak.container.024</string>
+        <string>com.containerizer.tweak.container.025</string>
+        <string>com.containerizer.tweak.container.026</string>
+        <string>com.containerizer.tweak.container.027</string>
+        <string>com.containerizer.tweak.container.028</string>
+        <string>com.containerizer.tweak.container.029</string>
+        <string>com.containerizer.tweak.container.030</string>
+    </array>
+</dict>
+</plist>

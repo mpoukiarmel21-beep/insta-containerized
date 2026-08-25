@@ -1,0 +1,17 @@
+# --- Projet INSTA ---
+
+# IPA décryptée (lourde + soumise au copyright) : jamais dans git.
+# Elle vit en GitHub Release (tag base-ipa), pas dans le dépôt.
+*.ipa
+
+# Secrets de signature Apple
+*.p12
+*.mobileprovision
+*.pfx
+secrets.*
+
+
+# --- Autres dossiers ---
+
+# Ne pas commiter sans demande explicite (voir AGENTS.md racine)
+deepseek-harness/
