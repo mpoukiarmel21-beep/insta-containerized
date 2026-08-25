@@ -54,7 +54,10 @@ jobs:
         run: |
           cd work
           insert_dylib --inplace --weak @executable_path/Frameworks/Tweak.dylib Payload/Instagram.app/Instagram
-          xcrun codesign -f -s - --deep \
+          # Tweak.dylib deja signe a l'etape precedente ; on signe le bundle
+          # SANS --deep (sinon codesign re-signe des centaines de frameworks
+          # Apple et met 1h+). Sideloadly re-signe tout a l'install.
+          xcrun codesign -f -s - \
             --entitlements "${{ github.workspace }}/INSTA/src/entitlements.xml" \
             Payload/Instagram.app
 
