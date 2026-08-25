@@ -1,0 +1,74 @@
+name: Build Instagram Containerized IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      ipa_tag:
+        description: "Tag de la Release GitHub contenant INSTAGRAM.ipa (decryptee)"
+        required: false
+        default: "base-ipa"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Telecharger l'IPA de base depuis la Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ inputs.ipa_tag || 'base-ipa' }}" --pattern "INSTAGRAM.ipa" --dir .
+          ls -la INSTAGRAM.ipa
+
+      - name: Dezipper l'IPA
+        run: |
+          rm -rf work && mkdir -p work
+          cd work
+          unzip -q ../INSTAGRAM.ipa
+          ls Payload
+
+      - name: Compiler insert_dylib (injecteur)
+        run: |
+          git clone --depth 1 https://github.com/Tyilo/insert_dylib /tmp/insert_dylib_src
+          cd /tmp/insert_dylib_src
+          clang insert_dylib.c -o /usr/local/bin/insert_dylib 2>/dev/null \
+            || clang *.c -o /usr/local/bin/insert_dylib
+          insert_dylib || true
+
+      - name: Compiler Tweak.dylib
+        run: |
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          xcrun clang -dynamiclib -arch arm64 -fno-objc-arc \
+            -isysroot "$SDK" \
+            -framework Foundation -framework UIKit -framework CoreLocation -framework MapKit \
+            "${{ github.workspace }}/src"/*.m \
+            -o /tmp/Tweak.dylib
+          xcrun codesign -f -s - /tmp/Tweak.dylib
+          mkdir -p work/Payload/Instagram.app/Frameworks
+          cp /tmp/Tweak.dylib work/Payload/Instagram.app/Frameworks/Tweak.dylib
+
+      - name: Injecter + signer (ad-hoc ; Sideloadly re-signera a l'install)
+        run: |
+          cd work
+          insert_dylib --inplace --weak @executable_path/Frameworks/Tweak.dylib Payload/Instagram.app/Instagram
+          xcrun codesign -f -s - --deep \
+            --entitlements "${{ github.workspace }}/src/entitlements.xml" \
+            Payload/Instagram.app
+
+      - name: Re-paqueter l'IPA
+        run: |
+          cd work
+          ditto -c -k --keepParent Payload "${{ github.workspace }}/Instagram-Containerized.ipa"
+          ls -la "${{ github.workspace }}/Instagram-Containerized.ipa"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Instagram-Containerized
+          path: Instagram-Containerized.ipa
+          retention-days: 90
