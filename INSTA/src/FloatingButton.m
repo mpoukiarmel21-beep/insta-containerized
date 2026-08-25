@@ -193,9 +193,10 @@ static UIWindow *gOverlay = nil;       // notre fenetre, jamais liberee
     NSArray *conts = cm.allContainers;
 
     if (ip.row < conts.count) {
-        [cm setActiveContainer:conts[ip.row]];
+        Container *ac = conts[ip.row];
+        [cm setActiveContainer:ac];
         [tv reloadData];
-        [[TweakLogger shared] log:@"Conteneur actif bascule: %@", conts[ip.row].name];
+        [[TweakLogger shared] log:@"Conteneur actif bascule: %@", ac.name];
         return;
     }
     NSInteger extra = ip.row - conts.count;
