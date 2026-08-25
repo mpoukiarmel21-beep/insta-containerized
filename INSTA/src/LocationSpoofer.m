@@ -64,7 +64,6 @@
     [self cz_setDelegate:delegate];
     if (!delegate) return;
     [LocationSpoofer swizzleDelegateCallback:[delegate class] sel:@selector(locationManager:didUpdateLocations:)];
-    [LocationSpoofer swizzleDelegateCallback:[delegate class] sel:@selector(locationManager:didUpdateToLocation:fromLocation:)];
 }
 
 @end
@@ -72,28 +71,20 @@
 @implementation LocationSpoofer (Delegate)
 
 + (void)swizzleDelegateCallback:(Class)dcls sel:(SEL)sel {
+    if (sel != @selector(locationManager:didUpdateLocations:)) return; // uniquement le callback moderne
     if (!class_respondsToSelector(dcls, sel)) return;
     if (objc_getAssociatedObject(dcls, sel)) return;
     Method m = class_getInstanceMethod(dcls, sel);
     if (!m) return;
 
     IMP old = method_getImplementation(m);
-    IMP repl;
-    if (sel == @selector(locationManager:didUpdateLocations:)) {
-        repl = imp_implementationWithBlock(^(id del, CLLocationManager *mgr, NSArray *locs) {
-            CLLocation *sp = [LocationSpoofer currentSpoofedLocation];
-            NSArray *use = sp ? @[sp] : locs;
-            void (*o)(id, SEL, id, NSArray *) = (void (*)(id, SEL, id, NSArray *))old;
-            o(del, sel, mgr, use);
-        });
-    } else {
-        repl = imp_implementationWithBlock(^(id del, CLLocationManager *mgr, CLLocation *newL, CLLocation *oldL) {
-            CLLocation *sp = [LocationSpoofer currentSpoofedLocation];
-            CLLocation *use = sp ? sp : newL;
-            void (*o)(id, SEL, id, id, id) = (void (*)(id, SEL, id, id, id))old;
-            o(del, sel, mgr, use, oldL);
-        });
-    }
+    IMP repl = imp_implementationWithBlock(^(id del, CLLocationManager *mgr, NSArray *locs) {
+        CLLocation *sp = [LocationSpoofer currentSpoofedLocation];
+        NSArray *use = locs;
+        if (sp && locs.count > 0) use = @[sp];
+        void (*o)(id, SEL, id, NSArray *) = (void (*)(id, SEL, id, NSArray *))old;
+        o(del, sel, mgr, use);
+    });
     method_setImplementation(m, repl);
     objc_setAssociatedObject(dcls, sel, @(1), OBJC_ASSOCIATION_RETAIN);
 }

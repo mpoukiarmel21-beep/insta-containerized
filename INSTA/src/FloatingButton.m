@@ -3,9 +3,10 @@
 //  Tweak
 //
 //  Bouton flottant draggable + menu de conteneurs (device/GPS/comptes).
-//  MRC (-fno-objc-arc). Le bouton est re-epinglé en permanence sur la fenetre
-//  la plus haute (timer + notifications) pour qu'Instagram ne puisse pas le
-//  faire disparaitre. Design : FAB degrade + carte glassy floutee (spring).
+//  MRC (-fno-objc-arc). Re-epingle permanent sur la fenetre la plus haute
+//  (timer + notifications) pour qu'Instagram ne puisse pas le faire disparaitre.
+//  Design 2026 : Dark Glassmorphism 2.0 (fond sombre opaque + bord 1px + blur
+//  de profondeur), accent cyan->indigo, spring, hit areas 48pt+.
 //
 
 #import "FloatingButton.h"
@@ -19,6 +20,8 @@
 #import <QuartzCore/QuartzCore.h>
 
 #define TWEAK_LOG(fmt, ...) [[TweakLogger shared] log:[NSString stringWithUTF8String:fmt], ##__VA_ARGS__]
+#define CACC1() [UIColor colorWithRed:0.20f green:0.85f blue:1.00f alpha:1.0f]
+#define CACC2() [UIColor colorWithRed:0.36f green:0.32f blue:0.95f alpha:1.0f]
 
 static UIButton *gButton = nil;
 static UIView   *gMenu   = nil;
@@ -44,7 +47,7 @@ static UIViewController *topController(void) {
 - (void)panHandler:(UIPanGestureRecognizer *)g;
 - (void)showMenu;
 - (void)hideMenu;
-- (void)addRowInMenu:(UIView *)menu y:(CGFloat *)y icon:(NSString *)icon title:(NSString *)title action:(SEL)action;
+- (CGFloat)addRowTo:(UIView *)menu atY:(CGFloat)y icon:(NSString *)icon title:(NSString *)title action:(SEL)action;
 - (void)rowHighlightOn:(UIButton *)b;
 - (void)rowHighlightOff:(UIButton *)b;
 - (void)switchContainerAction:(UIAlertAction *)a;
@@ -136,15 +139,14 @@ static UIViewController *topController(void) {
     b.layer.cornerRadius = size / 2.0;
     b.layer.masksToBounds = NO;
     b.layer.shadowColor = [UIColor blackColor].CGColor;
-    b.layer.shadowOpacity = 0.38;
-    b.layer.shadowRadius = 10;
-    b.layer.shadowOffset = CGSizeMake(0, 5);
+    b.layer.shadowOpacity = 0.40;
+    b.layer.shadowRadius = 12;
+    b.layer.shadowOffset = CGSizeMake(0, 6);
 
     CAGradientLayer *grad = [CAGradientLayer layer];
     grad.frame = CGRectMake(0, 0, size, size);
     grad.cornerRadius = size / 2.0;
-    grad.colors = @[ (__bridge id)[UIColor colorWithRed:0.42 green:0.21 blue:0.88 alpha:1].CGColor,
-                     (__bridge id)[UIColor colorWithRed:0.93 green:0.17 blue:0.55 alpha:1].CGColor ];
+    grad.colors = @[ (__bridge id)CACC1().CGColor, (__bridge id)CACC2().CGColor ];
     grad.startPoint = CGPointMake(0.15, 0.15);
     grad.endPoint   = CGPointMake(0.85, 0.85);
     [b.layer addSublayer:grad];
@@ -153,7 +155,7 @@ static UIViewController *topController(void) {
     glyph.text = @"⚙︎";
     glyph.textAlignment = NSTextAlignmentCenter;
     glyph.textColor = [UIColor whiteColor];
-    glyph.font = [UIFont systemFontOfSize:27];
+    glyph.font = [UIFont systemFontOfSize:27 weight:UIFontWeightSemibold];
     [b addSubview:glyph];
     [glyph release];
 
@@ -174,7 +176,7 @@ static UIViewController *topController(void) {
     } completion:nil];
 }
 - (void)btnTouchUp:(id)sender {
-    [UIView animateWithDuration:0.18 delay:0 usingSpringWithDamping:0.5 initialSpringVelocity:0.6 options:0 animations:^{
+    [UIView animateWithDuration:0.20 delay:0 usingSpringWithDamping:0.5 initialSpringVelocity:0.6 options:0 animations:^{
         gButton.transform = CGAffineTransformIdentity;
     } completion:nil];
 }
@@ -192,49 +194,61 @@ static UIViewController *topController(void) {
     }
 }
 
-#pragma mark - Menu (carte glassy)
+#pragma mark - Menu (Dark Glassmorphism 2.0)
 
 - (void)buildMenuIfNeeded {
     if (gMenu) return;
-    gMenu = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 290, 360)];
+    gMenu = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 280, 380)];
     gMenu.clipsToBounds = YES;
-    gMenu.layer.cornerRadius = 20;
+    gMenu.layer.cornerRadius = 22;
     gMenu.layer.masksToBounds = YES;
+    gMenu.layer.borderWidth = 1.0;
+    gMenu.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.16].CGColor;
     gMenu.layer.shadowColor = [UIColor blackColor].CGColor;
-    gMenu.layer.shadowOpacity = 0.45;
-    gMenu.layer.shadowRadius = 18;
-    gMenu.layer.shadowOffset = CGSizeMake(0, 10);
-
-    UIVisualEffect *blur = [UIBlurEffect effectWithStyle:UIBlurEffectStyleDark];
-    UIVisualEffectView *ve = [[UIVisualEffectView alloc] initWithEffect:blur];
-    ve.frame = gMenu.bounds;
-    ve.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    [gMenu addSubview:ve];
-    [ve release];
-
+    gMenu.layer.shadowOpacity = 0.50;
+    gMenu.layer.shadowRadius = 22;
+    gMenu.layer.shadowOffset = CGSizeMake(0, 12);
+    gMenu.backgroundColor = [UIColor colorWithRed:0.07f green:0.08f blue:0.11f alpha:0.94];
     if (!gCurrentContainer) gCurrentContainer = [[[ContainerManager shared] activeContainer] retain];
 }
 
-- (void)addRowInMenu:(UIView *)menu y:(CGFloat *)y icon:(NSString *)icon title:(NSString *)title action:(SEL)action {
-    CGFloat rowH = 48;
-    UIButton *row = [UIButton buttonWithType:UIButtonTypeCustom];
-    row.frame = CGRectMake(8, *y, menu.bounds.size.width - 16, rowH);
-    row.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
-    row.contentEdgeInsets = UIEdgeInsetsMake(0, 14, 0, 14);
-    row.layer.cornerRadius = 12;
-    row.titleLabel.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
-    [row setTitle:[NSString stringWithFormat:@"%@  %@", icon, title] forState:UIControlStateNormal];
-    [row setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    [row addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
-    [row addTarget:self action:@selector(rowHighlightOn:) forControlEvents:UIControlEventTouchDown];
-    [row addTarget:self action:@selector(rowHighlightOff:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
-    [menu addSubview:row];
-
-    *y += rowH + 6;
-}
-
-- (void)rowHighlightOn:(UIButton *)b { b.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.14]; }
+- (void)rowHighlightOn:(UIButton *)b { b.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.10]; }
 - (void)rowHighlightOff:(UIButton *)b { b.backgroundColor = [UIColor clearColor]; }
+
+- (CGFloat)addRowTo:(UIView *)menu atY:(CGFloat)y icon:(NSString *)icon title:(NSString *)title action:(SEL)action {
+    CGFloat rowH = 50;
+    UIView *row = [[UIView alloc] initWithFrame:CGRectMake(0, y, menu.bounds.size.width, rowH)];
+
+    UIView *chip = [[UIView alloc] initWithFrame:CGRectMake(14, (rowH - 32) / 2.0, 32, 32)];
+    chip.layer.cornerRadius = 9;
+    chip.backgroundColor = [CACC2() colorWithAlphaComponent:0.22];
+    UILabel *ic = [[UILabel alloc] initWithFrame:chip.bounds];
+    ic.text = icon; ic.textAlignment = NSTextAlignmentCenter; ic.font = [UIFont systemFontOfSize:17];
+    [chip addSubview:ic]; [ic release];
+    [row addSubview:chip]; [chip release];
+
+    UILabel *lab = [[UILabel alloc] initWithFrame:CGRectMake(58, 0, menu.bounds.size.width - 58 - 14, rowH)];
+    lab.text = title;
+    lab.textColor = [UIColor colorWithWhite:1.0 alpha:0.95];
+    lab.font = [UIFont systemFontOfSize:16 weight:UIFontWeightMedium];
+    lab.textAlignment = NSTextAlignmentLeft;
+    [row addSubview:lab]; [lab release];
+
+    UIView *sep = [[UIView alloc] initWithFrame:CGRectMake(14, rowH - 0.5, menu.bounds.size.width - 28, 0.5)];
+    sep.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.08];
+    [row addSubview:sep]; [sep release];
+
+    UIButton *hit = [UIButton buttonWithType:UIButtonTypeCustom];
+    hit.frame = row.bounds;
+    hit.backgroundColor = [UIColor clearColor];
+    [hit addTarget:self action:action forControlEvents:UIControlEventTouchUpInside];
+    [hit addTarget:self action:@selector(rowHighlightOn:) forControlEvents:UIControlEventTouchDown];
+    [hit addTarget:self action:@selector(rowHighlightOff:) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
+    [row addSubview:hit];
+
+    [menu addSubview:row]; [row release];
+    return y + rowH;
+}
 
 - (void)btnTapped:(id)sender {
     [self btnTouchUp:sender];
@@ -246,34 +260,43 @@ static UIViewController *topController(void) {
 - (void)showMenu {
     if (!gCurrentContainer) gCurrentContainer = [[[ContainerManager shared] activeContainer] retain];
     [[gMenu subviews] makeObjectsPerformSelector:@selector(removeFromSuperview)];
-    [gMenu addSubview:[[[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]] autorelease]];
 
-    CGFloat y = 14;
-    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(16, y, gMenu.bounds.size.width - 32, 22)];
-    title.text = [NSString stringWithFormat:@"Conteneur : %@", gCurrentContainer.name];
-    title.textColor = [UIColor colorWithWhite:1.0 alpha:0.75];
-    title.font = [UIFont boldSystemFontOfSize:14];
-    [gMenu addSubview:title];
-    [title release];
-    y += 30;
+    UIVisualEffectView *blur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleDark]];
+    blur.frame = gMenu.bounds;
+    blur.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [gMenu addSubview:blur];
+    [blur release];
 
-    [self addRowInMenu:gMenu y:&y icon:@"📦" title:@"Changer de conteneur"  action:@selector(contMenu)];
-    [self addRowInMenu:gMenu y:&y icon:@"👥" title:@"Comptes du conteneur"  action:@selector(accountsMenu)];
-    [self addRowInMenu:gMenu y:&y icon:@"📍" title:@"GPS truqué (carte)"    action:@selector(fakeGPSAction)];
-    [self addRowInMenu:gMenu y:&y icon:@"♻︎" title:@"Reset profil device"    action:@selector(resetAction)];
-    [self addRowInMenu:gMenu y:&y icon:@"📜" title:@"Journal / Logs"        action:@selector(logsAction)];
-    [self addRowInMenu:gMenu y:&y icon:@"✕" title:@"Fermer"                 action:@selector(hideMenu)];
+    CGFloat y = 0;
+    UIView *header = [[UIView alloc] initWithFrame:CGRectMake(0, 0, gMenu.bounds.size.width, 48)];
+    UILabel *h = [[UILabel alloc] initWithFrame:CGRectMake(18, 0, gMenu.bounds.size.width - 36, 48)];
+    h.text = [NSString stringWithFormat:@"Conteneur  ·  %@", gCurrentContainer.name];
+    h.textColor = [UIColor colorWithWhite:1.0 alpha:0.92];
+    h.font = [UIFont boldSystemFontOfSize:15];
+    [header addSubview:h]; [h release];
+    UIView *hsep = [[UIView alloc] initWithFrame:CGRectMake(14, 47.5, gMenu.bounds.size.width - 28, 0.5)];
+    hsep.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.12];
+    [header addSubview:hsep]; [hsep release];
+    [gMenu addSubview:header]; [header release];
+    y = 48;
+
+    y = [self addRowTo:gMenu atY:y icon:@"📦" title:@"Changer de conteneur"   action:@selector(contMenu)];
+    y = [self addRowTo:gMenu atY:y icon:@"👥" title:@"Comptes du conteneur"   action:@selector(accountsMenu)];
+    y = [self addRowTo:gMenu atY:y icon:@"📍" title:@"GPS truqué (carte)"     action:@selector(fakeGPSAction)];
+    y = [self addRowTo:gMenu atY:y icon:@"♻︎" title:@"Reset profil device"     action:@selector(resetAction)];
+    y = [self addRowTo:gMenu atY:y icon:@"📜" title:@"Journal / Logs"         action:@selector(logsAction)];
+    y = [self addRowTo:gMenu atY:y icon:@"✕" title:@"Fermer"                  action:@selector(hideMenu)];
 
     UIWindow *w = [self topWindow];
     CGRect sr = w.bounds;
-    gMenu.frame = CGRectMake(sr.size.width - 290 - 16, 70, 290, y + 8);
+    gMenu.frame = CGRectMake(sr.size.width - 280 - 16, 70, 280, y + 6);
 
     gMenuVisible = YES;
     gMenu.alpha = 0;
     gMenu.transform = CGAffineTransformMakeScale(0.92, 0.92);
     if (gMenu.superview != w) [w addSubview:gMenu];
     [w bringSubviewToFront:gMenu];
-    [UIView animateWithDuration:0.30 delay:0 usingSpringWithDamping:0.82 initialSpringVelocity:0.7
+    [UIView animateWithDuration:0.32 delay:0 usingSpringWithDamping:0.82 initialSpringVelocity:0.7
                         options:UIViewAnimationOptionCurveEaseOut animations:^{
         gMenu.alpha = 1;
         gMenu.transform = CGAffineTransformIdentity;

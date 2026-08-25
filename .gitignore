@@ -20,3 +20,8 @@ deepseek-harness/
 INSTA/IGContainerMod/
 INSTA/InstaContainer/
 
+
+# Dossiers tiers (projets npm locaux, non versionnes)
+IGContainerMod/
+InstaContainer/
+
