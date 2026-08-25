@@ -51,6 +51,25 @@ Checklist de validation terrain (iPhone 11/12) :
 
 ## Journal
 
+### 2026-08-25 (UI v2 — interactivité réparée + redesign) — ox-alpha (opencode)
+- Retour terrain utilisateur : bouton visible mais AUCUNE interaction possible (pas de création
+  de conteneur, pas de localisation). Cause identifiée : `UIWindow` créée sans `windowScene`
+  sur iOS 13+ → touches non routées de manière fiable ; enchaîné à `presentViewController` sur
+  rootViewController d'une window custom = présentations aléatoires.
+- Fixes : window rattachée à la `UIWindowScene` active (`initWithWindowScene:`) ; panneau et
+  location picker désormais présentés **manuellement** (addSubview + child VC, zéro UIKit
+  presentation API) ; helper `presentAlert:` qui re-force la key window avant chaque alerte ;
+  invalidation centralisée des caches (home/keychain/device/location) dans `switchToContainer`.
+- Redesign complet demandé par l'utilisateur :
+  - Bouton : blur sombre translucide, bordure hairline, badge conteneur actif (initiale/D),
+    apparition spring.
+  - Panneau bottom-sheet 80 % : grabber, titre heavy, cards avec avatar initiale colorée par hash,
+    bordure accent sur le conteneur actif + pill ACTIF, swipe-delete conservé, footer avec bouton
+    gradient « NOUVEAU CONTENEUR » + duo LOCALISATION / TOUT EFFACER.
+  - Flux guidé : créer → proposition immédiate de localiser → activation (redémarrer ou plus tard).
+- Run 32838266695 SUCCESS au premier essai. Livraison : draft release **build-18** =
+  `IGContainer-18.ipa` (249 Mo). build-17 supprimée (obsolète).
+
 ### 2026-08-25 (build CI vert, IPA livrée) — ox-alpha (opencode)
 - Contournement du blocage Actions (billing) : build sur **ubuntu-latest** via repo **public**
   + IPA de base chiffrée AES-256 en asset public (clé en secret `IPA_PASSWORD`) — l'IPA claire

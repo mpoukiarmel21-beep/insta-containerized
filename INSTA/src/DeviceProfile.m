@@ -52,35 +52,50 @@ static NSString *spoofedModelName(void) {
 - (NSString *)cz_localizedModel { return @"iPhone"; }
 @end
 
+// Garde anti-recursion : ContainerManager.init appelle NSSearchPathForDirectoriesInDomains
+// qui rappelle sysctlbyname/uname. Sans garde -> re-entree dans dispatch_once -> deadlock au lancement.
+static int gSpoofDepth = 0;
+static int (*cz_orig_uname)(struct utsname *) = NULL;
+static int (*cz_orig_sysctlbyname)(const char *, void *, size_t *, void *, size_t) = NULL;
+
 static int cz_uname(struct utsname *name) {
+    if (gSpoofDepth > 0) {
+        if (!cz_orig_uname) cz_orig_uname = (int (*)(struct utsname *))dlsym(RTLD_NEXT, "uname");
+        if (cz_orig_uname) return cz_orig_uname(name);
+        return -1;
+    }
     if (!name) return -1;
+    gSpoofDepth++;
     bzero(name, sizeof(*name));
     strncpy(name->sysname,    "Darwin",   sizeof(name->sysname)   - 1);
     strncpy(name->nodename,   "iPhone",   sizeof(name->nodename)  - 1);
     strncpy(name->release,    [spoofedSystemVersion() UTF8String], sizeof(name->release) - 1);
     strncpy(name->version,    "Darwin Kernel Version 26.6.1: Rooted", sizeof(name->version) - 1);
     strncpy(name->machine,    [spoofedModelIdentifier() UTF8String], sizeof(name->machine) - 1);
+    gSpoofDepth--;
     return 0;
 }
 
 DYLD_INTERPOSE(cz_uname, uname);
 
 // Spoof aussi sysctl hw.machine / hw.model (Instagram les lit souvent directement).
-static int (*cz_orig_sysctlbyname)(const char *, void *, size_t *, void *, size_t) = NULL;
-
 static int cz_sysctlbyname(const char *name, void *oldp, size_t *oldlenp, void *newp, size_t newlen) {
-    if (name && oldp) {
+    if (gSpoofDepth == 0) {
+        gSpoofDepth++;
         const char *s = NULL;
-        if (strcmp(name, "hw.machine") == 0) s = [spoofedModelIdentifier() UTF8String] ?: "iPhone15,4";
-        else if (strcmp(name, "hw.model") == 0) s = [spoofedModelName() UTF8String] ?: "iPhone";
+        if (name && oldp) {
+            if (strcmp(name, "hw.machine") == 0) s = [spoofedModelIdentifier() UTF8String] ?: "iPhone15,4";
+            else if (strcmp(name, "hw.model") == 0) s = [spoofedModelName() UTF8String] ?: "iPhone";
+        }
         if (s) {
             size_t need = strlen(s) + 1;
             size_t cap = oldlenp ? *oldlenp : 0;
-            size_t copy = need < cap ? need : cap;
-            if (cap > 0) memcpy(oldp, s, copy);
+            if (cap > 0) memcpy(oldp, s, need < cap ? need : cap);
             if (oldlenp) *oldlenp = need;
+            gSpoofDepth--;
             return 0;
         }
+        gSpoofDepth--; // pas de spoof pour ce nom -> original
     }
     if (!cz_orig_sysctlbyname) {
         cz_orig_sysctlbyname = (int (*)(const char *, void *, size_t *, void *, size_t))
