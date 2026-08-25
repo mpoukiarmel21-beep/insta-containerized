@@ -8,7 +8,18 @@
 #import "TweakLogger.h"
 #import <sys/utsname.h>
 #import <objc/runtime.h>
+
+#if __has_include(<mach-o/dyld_interpose.h>)
 #import <mach-o/dyld_interpose.h>
+#else
+// Le SDK iPhone ne fournit pas ce header : on definit la macro nous-memes.
+// La section __DATA,__interpose est honoree par dyld au chargement de la dylib.
+#ifndef DYLD_INTERPOSE
+#define DYLD_INTERPOSE(_replacement, _replacee) \
+__attribute__((used)) static struct { const void *replacement; const void *replacee; } _interpose_##_replacee \
+__attribute__((section("__DATA,__interpose"))) = { (const void *)(unsigned long)&_replacement, (const void *)(unsigned long)&_replacee };
+#endif
+#endif
 
 static Container *activeContainer(void) {
     return [[ContainerManager shared] activeContainer];
