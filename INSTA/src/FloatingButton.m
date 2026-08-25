@@ -15,11 +15,7 @@
 #import <MapKit/MapKit.h>
 #import <CoreLocation/CoreLocation.h>
 
-@interface TweakLogger : NSObject
-+ (void)log:(NSString *)msg;
-+ (NSString *)recentLog;
-@end
-#define TWEAK_LOG(fmt, ...) [TweakLogger log:[NSString stringWithFormat:fmt, ##__VA_ARGS__]]
+#define TWEAK_LOG(fmt, ...) [[TweakLogger shared] log:[NSString stringWithUTF8String:fmt], ##__VA_ARGS__]
 
 static UIButton *gButton = nil;
 static UIView   *gMenu   = nil;
@@ -196,11 +192,11 @@ static UIViewController *topController(void) {
 
 - (void)switchContainerAction:(UIAlertAction *)a {
     NSString *name = a.title;
-    [[ContainerManager shared] setActiveContainerByName:name];
+    for (Container *c in [[ContainerManager shared] allContainers]) {
+        if ([c.name isEqualToString:name]) { [[ContainerManager shared] setActiveContainer:c]; break; }
+    }
     [gCurrentContainer release];
     gCurrentContainer = [[[ContainerManager shared] activeContainer] retain];
-    [DeviceProfile applyActiveContainer];
-    [LocationSpoofer applyActiveContainer];
     [self hideMenu];
 }
 
@@ -209,7 +205,7 @@ static UIViewController *topController(void) {
     UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"Conteneurs"
                                                                message:@"Choisis le conteneur actif"
                                                         preferredStyle:UIAlertControllerStyleActionSheet];
-    NSArray *cs = [[ContainerManager shared] containers];
+    NSArray *cs = [[ContainerManager shared] allContainers];
     for (Container *c in cs) {
         [ac addAction:[UIAlertAction actionWithTitle:c.name style:UIAlertActionStyleDefault
                                              handler:^(UIAlertAction *a){ [self switchContainerAction:a]; }]];
@@ -234,11 +230,12 @@ static UIViewController *topController(void) {
 }
 
 - (void)savedAccountsMenu {
-    NSArray *accs = [[ContainerManager shared] savedAccountsForActiveContainer];
+    NSArray *accs = [[ContainerManager shared] accountSessionsForContainer:[[ContainerManager shared] activeContainer]];
     UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"Comptes sauvegardés"
                                                                message:@"Sélectionne un compte à (ré)injecter"
                                                         preferredStyle:UIAlertControllerStyleActionSheet];
-    for (NSString *u in accs) {
+    for (NSDictionary *s in accs) {
+        NSString *u = s[@"username"] ?: @"(sans nom)";
         [ac addAction:[UIAlertAction actionWithTitle:u style:UIAlertActionStyleDefault
                                              handler:^(UIAlertAction *a){ [self accountPicked:a]; }]];
     }
@@ -257,21 +254,22 @@ static UIViewController *topController(void) {
     [ac addAction:[UIAlertAction actionWithTitle:@"Sauver" style:UIAlertActionStyleDefault
                                          handler:^(UIAlertAction *a){
         NSString *v = ac.textFields.firstObject.text;
-        if (v.length) [[ContainerManager shared] addSavedAccount:v forActiveContainer:];
+        if (v.length) [[ContainerManager shared] saveAccountSession:@{@"username": v} forContainer:[[ContainerManager shared] activeContainer]];
     }]];
     [ac addAction:[UIAlertAction actionWithTitle:@"Annuler" style:UIAlertActionStyleCancel handler:nil]];
     [topController() presentViewController:ac animated:YES completion:nil];
 }
 
 - (void)delAccount {
-    NSArray *accs = [[ContainerManager shared] savedAccountsForActiveContainer];
+    NSArray *accs = [[ContainerManager shared] accountSessionsForContainer:[[ContainerManager shared] activeContainer]];
     UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"Supprimer un compte"
                                                                message:nil
                                                         preferredStyle:UIAlertControllerStyleActionSheet];
-    for (NSString *u in accs) {
+    for (NSDictionary *s in accs) {
+        NSString *u = s[@"username"] ?: @"(sans nom)";
         [ac addAction:[UIAlertAction actionWithTitle:u style:UIAlertActionStyleDestructive
-                                              handler:^(UIAlertAction *a){
-            [[ContainerManager shared] removeSavedAccount:a.title forActiveContainer:];
+                                             handler:^(UIAlertAction *a){
+            [[ContainerManager shared] removeAccountSession:s forContainer:[[ContainerManager shared] activeContainer]];
         }]];
     }
     [ac addAction:[UIAlertAction actionWithTitle:@"Annuler" style:UIAlertActionStyleCancel handler:nil]];
@@ -290,35 +288,16 @@ static UIViewController *topController(void) {
 
 - (void)fakeGPSAction {
     [self hideMenu];
-    UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"GPS truqué"
-                                                               message:@"Latitude / Longitude"
-                                                        preferredStyle:UIAlertControllerStyleAlert];
-    [ac addTextFieldWithConfigurationHandler:^(UITextField *t){
-        t.placeholder = @"lat ex: 48.8566"; t.keyboardType = UIKeyboardTypeDecimalPad; }];
-    [ac addTextFieldWithConfigurationHandler:^(UITextField *t){
-        t.placeholder = @"lon ex: 2.3522"; t.keyboardType = UIKeyboardTypeDecimalPad; }];
-    [ac addAction:[UIAlertAction actionWithTitle:@"Activer" style:UIAlertActionStyleDefault
-                                     handler:^(UIAlertAction *a){
-        double lat = [ac.textFields[0].text doubleValue];
-        double lon = [ac.textFields[1].text doubleValue];
-        if (ac.textFields[0].text.length) {
-            CLLocation *loc = [[CLLocation alloc] initWithLatitude:lat longitude:lon];
-            [[LocationSpoofer shared] setFakeLocation:loc];
-            [[LocationSpoofer shared] activate];
-            TWEAK_LOG("GPS truque -> lat=%f lon=%f", lat, lon);
-            [loc release];
-        }
-    }]];
-    [ac addAction:[UIAlertAction actionWithTitle:@"Annuler" style:UIAlertActionStyleCancel handler:nil]];
-    [topController() presentViewController:ac animated:YES completion:nil];
+    [LocationSpoofer presentPickerFrom:topController()];
 }
 
 - (void)resetAction {
     [self hideMenu];
-    [[DeviceProfile shared] resetActiveContainer];
-    [[LocationSpoofer shared] deactivate];
-    [DeviceProfile applyActiveContainer];
-    TWEAK_LOG("Reset profil device + GPS pour conteneur %s", [gCurrentContainer.name UTF8String]);
+    Container *c = [[ContainerManager shared] activeContainer];
+    c.locationEnabled = NO;
+    [[ContainerManager shared] updateContainer:c];
+    [[ContainerManager shared] randomizeProfileForActiveContainer];
+    TWEAK_LOG("Reset profil device + GPS pour conteneur %s", [c.name UTF8String]);
 }
 
 - (void)logsAction {
@@ -333,30 +312,5 @@ static UIViewController *topController(void) {
 
 @end
 
-#pragma mark - Logging (journal tweak.log)
-
-@implementation TweakLogger
-static NSString *gLogPath = nil;
-+ (void)initialize { if (self == [TweakLogger class]) {
-    NSArray *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-    gLogPath = [[docs.firstObject stringByAppendingPathComponent:@"tweak.log"] retain];
-} }
-+ (void)log:(NSString *)msg {
-    if (!gLogPath || !msg) return;
-    NSString *line = [NSString stringWithFormat:@"%@ %@\n",
-                     [NSDate date], msg];
-    NSFileHandle *fh = [NSFileHandle fileHandleForWritingAtPath:gLogPath];
-    if (!fh) { [[NSFileManager defaultManager] createFileAtPath:gLogPath contents:nil attributes:nil];
-               fh = [NSFileHandle fileHandleForWritingAtPath:gLogPath]; }
-    if (fh) { [fh seekToEndOfFile]; [fh writeData:[line dataUsingEncoding:NSUTF8StringEncoding]];
-              [fh closeFile]; }
-}
-+ (NSString *)recentLog {
-    if (!gLogPath) return nil;
-    NSError *e = nil;
-    NSString *s = [NSString stringWithContentsOfFile:gLogPath encoding:NSUTF8StringEncoding error:&e];
-    return s;
-}
-@end
 
 #define TWEAK_LOG(fmt, ...) [TweakLogger log:[NSString stringWithFormat:fmt, ##__VA_ARGS__]]

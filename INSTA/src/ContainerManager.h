@@ -30,7 +30,9 @@
 - (void)deleteContainer:(Container *)c;
 - (void)setActiveContainer:(Container *)c;
 - (void)updateContainer:(Container *)c;
+- (void)randomizeProfileForActiveContainer;
 - (void)saveAccountSession:(NSDictionary *)session forContainer:(Container *)c;
+- (void)removeAccountSession:(NSDictionary *)session forContainer:(Container *)c;
 - (NSArray<NSDictionary *> *)accountSessionsForContainer:(Container *)c;
 - (void)resetAll;
 @end

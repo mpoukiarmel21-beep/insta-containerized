@@ -152,6 +152,19 @@ static NSString *gRandomSerial(void) {
     if ([_active.uuid isEqualToString:c.uuid]) { _active = nil; [self saveActive]; }
 }
 
+- (void)randomizeProfileForActiveContainer {
+    Container *c = [self activeContainer];
+    if (!c) return;
+    NSArray *models = gModelTable();
+    NSArray *pick = models[arc4random_uniform((uint32_t)models.count)];
+    c.modelIdentifier = pick[0];
+    c.modelName = pick[1];
+    c.iosVersion = @"26.6.1";
+    c.serial = gRandomSerial();
+    [self updateContainer:c];
+    [[TweakLogger shared] log:@"Profil device réinitialisé pour %@", c.name];
+}
+
 - (void)setActiveContainer:(Container *)c {
     _active = c;
     [self saveActive];
@@ -193,6 +206,16 @@ static NSString *gRandomSerial(void) {
     if (!d) return @[];
     id obj = [NSJSONSerialization JSONObjectWithData:d options:0 error:nil];
     return [obj isKindOfClass:[NSArray class]] ? obj : @[];
+}
+
+- (void)removeAccountSession:(NSDictionary *)session forContainer:(Container *)c {
+    NSMutableArray *arr = [NSMutableArray arrayWithArray:[self accountSessionsForContainer:c]];
+    [arr removeObject:session];
+    NSString *p = [[[self dirFor:c] stringByAppendingPathComponent:@"Accounts"]
+                   stringByAppendingPathComponent:@"sessions.json"];
+    NSData *d = [NSJSONSerialization dataWithJSONObject:arr options:NSJSONWritingPrettyPrinted error:nil];
+    [d writeToFile:p atomically:YES];
+    [[TweakLogger shared] log:@"Session compte supprimée pour %@", c.name];
 }
 
 - (void)resetAll {
