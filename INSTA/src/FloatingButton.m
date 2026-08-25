@@ -11,6 +11,7 @@
 #import "ContainerManager.h"
 #import "DeviceProfile.h"
 #import "LocationSpoofer.h"
+#import "TweakLogger.h"
 #import <UIKit/UIKit.h>
 #import <MapKit/MapKit.h>
 #import <CoreLocation/CoreLocation.h>
