@@ -43,7 +43,7 @@ jobs:
           SDK=$(xcrun --sdk iphoneos --show-sdk-path)
           xcrun clang -dynamiclib -arch arm64 -fno-objc-arc \
             -isysroot "$SDK" \
-            -framework Foundation -framework UIKit -framework CoreLocation -framework MapKit \
+            -framework Foundation -framework UIKit -framework CoreLocation -framework MapKit -framework CoreGraphics \
             "${{ github.workspace }}/INSTA/src"/*.m \
             -o /tmp/Tweak.dylib
           xcrun codesign -f -s - /tmp/Tweak.dylib
