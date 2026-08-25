@@ -46,7 +46,7 @@ jobs:
           xcrun clang -dynamiclib -arch arm64 -fno-objc-arc \
             -isysroot "$SDK" \
             -framework Foundation -framework UIKit -framework CoreLocation -framework MapKit \
-            "${{ github.workspace }}/src"/*.m \
+            "${{ github.workspace }}/INSTA/src"/*.m \
             -o /tmp/Tweak.dylib
           xcrun codesign -f -s - /tmp/Tweak.dylib
           mkdir -p work/Payload/Instagram.app/Frameworks
@@ -57,7 +57,7 @@ jobs:
           cd work
           insert_dylib --inplace --weak @executable_path/Frameworks/Tweak.dylib Payload/Instagram.app/Instagram
           xcrun codesign -f -s - --deep \
-            --entitlements "${{ github.workspace }}/src/entitlements.xml" \
+            --entitlements "${{ github.workspace }}/INSTA/src/entitlements.xml" \
             Payload/Instagram.app
 
       - name: Re-paqueter l'IPA
