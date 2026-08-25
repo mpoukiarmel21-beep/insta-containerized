@@ -13,6 +13,13 @@
 #import "LocationSpoofer.h"
 #import <UIKit/UIKit.h>
 #import <MapKit/MapKit.h>
+#import <CoreLocation/CoreLocation.h>
+
+@interface TweakLogger : NSObject
++ (void)log:(NSString *)msg;
++ (NSString *)recentLog;
+@end
+#define TWEAK_LOG(fmt, ...) [TweakLogger log:[NSString stringWithFormat:fmt, ##__VA_ARGS__]]
 
 static UIButton *gButton = nil;
 static UIView   *gMenu   = nil;
@@ -144,7 +151,7 @@ static UIViewController *topController(void) {
     }
     [[gMenu subviews] makeObjectsPerformSelector:@selector(removeFromSuperview)];
 
-    CGFloat y = 10;
+    CGFloat __block y = 10;
     void (^addBtn)(NSString *, SEL) = ^(NSString *t, SEL s){
         UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
         [b setTitle:t forState:UIControlStateNormal];
@@ -250,7 +257,7 @@ static UIViewController *topController(void) {
     [ac addAction:[UIAlertAction actionWithTitle:@"Sauver" style:UIAlertActionStyleDefault
                                          handler:^(UIAlertAction *a){
         NSString *v = ac.textFields.firstObject.text;
-        if (v.length) [[ContainerManager shared] addSavedAccount:v forActiveContainer];
+        if (v.length) [[ContainerManager shared] addSavedAccount:v forActiveContainer:];
     }]];
     [ac addAction:[UIAlertAction actionWithTitle:@"Annuler" style:UIAlertActionStyleCancel handler:nil]];
     [topController() presentViewController:ac animated:YES completion:nil];
@@ -263,8 +270,8 @@ static UIViewController *topController(void) {
                                                         preferredStyle:UIAlertControllerStyleActionSheet];
     for (NSString *u in accs) {
         [ac addAction:[UIAlertAction actionWithTitle:u style:UIAlertActionStyleDestructive
-                                             handler:^(UIAlertAction *a){
-            [[ContainerManager shared] removeSavedAccount:a.title forActiveContainer];
+                                              handler:^(UIAlertAction *a){
+            [[ContainerManager shared] removeSavedAccount:a.title forActiveContainer:];
         }]];
     }
     [ac addAction:[UIAlertAction actionWithTitle:@"Annuler" style:UIAlertActionStyleCancel handler:nil]];
@@ -283,27 +290,27 @@ static UIViewController *topController(void) {
 
 - (void)fakeGPSAction {
     [self hideMenu];
-    Class pickerClass = NSClassFromString(@"CLLocationPickerViewController");
-    if (!pickerClass) {
-        UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"GPS"
-                                                                   message:@"CLLocationPickerViewController indisponible sur cet iOS"
-                                                            preferredStyle:UIAlertControllerStyleAlert];
-        [ac addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-        [topController() presentViewController:ac animated:YES completion:nil];
-        return;
-    }
-    CLLocationPickerViewController *picker = [[pickerClass alloc] init];
-    [picker setCompletionHandler:^(CLLocation *loc, CLPlacemark *pm){
-        if (loc) {
+    UIAlertController *ac = [UIAlertController alertControllerWithTitle:@"GPS truqué"
+                                                               message:@"Latitude / Longitude"
+                                                        preferredStyle:UIAlertControllerStyleAlert];
+    [ac addTextFieldWithConfigurationHandler:^(UITextField *t){
+        t.placeholder = @"lat ex: 48.8566"; t.keyboardType = UIKeyboardTypeDecimalPad; }];
+    [ac addTextFieldWithConfigurationHandler:^(UITextField *t){
+        t.placeholder = @"lon ex: 2.3522"; t.keyboardType = UIKeyboardTypeDecimalPad; }];
+    [ac addAction:[UIAlertAction actionWithTitle:@"Activer" style:UIAlertActionStyleDefault
+                                     handler:^(UIAlertAction *a){
+        double lat = [ac.textFields[0].text doubleValue];
+        double lon = [ac.textFields[1].text doubleValue];
+        if (ac.textFields[0].text.length) {
+            CLLocation *loc = [[CLLocation alloc] initWithLatitude:lat longitude:lon];
             [[LocationSpoofer shared] setFakeLocation:loc];
             [[LocationSpoofer shared] activate];
-            TWEAK_LOG("GPS truque -> lat=%f lon=%f", loc.coordinate.latitude, loc.coordinate.longitude);
+            TWEAK_LOG("GPS truque -> lat=%f lon=%f", lat, lon);
+            [loc release];
         }
-        [picker dismissViewControllerAnimated:YES completion:nil];
-        [[NSNotificationCenter defaultCenter] postNotificationName:@"CZContainerizerRestoreOverlay" object:nil];
-    }];
-    [topController() presentViewController:picker animated:YES completion:nil];
-    [picker release];
+    }]];
+    [ac addAction:[UIAlertAction actionWithTitle:@"Annuler" style:UIAlertActionStyleCancel handler:nil]];
+    [topController() presentViewController:ac animated:YES completion:nil];
 }
 
 - (void)resetAction {
@@ -327,11 +334,6 @@ static UIViewController *topController(void) {
 @end
 
 #pragma mark - Logging (journal tweak.log)
-
-@interface TweakLogger : NSObject
-+ (void)log:(NSString *)msg;
-+ (NSString *)recentLog;
-@end
 
 @implementation TweakLogger
 static NSString *gLogPath = nil;
