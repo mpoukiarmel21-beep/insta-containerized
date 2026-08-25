@@ -35,10 +35,8 @@ jobs:
       - name: Compiler insert_dylib (injecteur)
         run: |
           git clone --depth 1 https://github.com/Tyilo/insert_dylib /tmp/insert_dylib_src
-          cd /tmp/insert_dylib_src
-          clang insert_dylib.c -o /usr/local/bin/insert_dylib 2>/dev/null \
-            || clang *.c -o /usr/local/bin/insert_dylib
-          insert_dylib || true
+          clang /tmp/insert_dylib_src/insert_dylib/main.c -o /usr/local/bin/insert_dylib
+          insert_dylib --help || true
 
       - name: Compiler Tweak.dylib
         run: |
