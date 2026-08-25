@@ -50,19 +50,11 @@ jobs:
           mkdir -p work/Payload/Instagram.app/Frameworks
           cp /tmp/Tweak.dylib work/Payload/Instagram.app/Frameworks/Tweak.dylib
 
-      - name: Injecter + signer (ad-hoc ; Sideloadly re-signera a l'install)
+      - name: Injecter la dylib (Sideloadly re-signera tout a l'install)
         run: |
           cd work
           insert_dylib --inplace --weak @executable_path/Frameworks/Tweak.dylib Payload/Instagram.app/Instagram
-          # On signe UNIQUEMENT les fichiers modifies (binaire principal + dylib),
-          # pas le bundle entier (codesign sur un bundle Instagram de plusieurs
-          # centaines de Mo fige >30 min). Sideloadly re-signe tout a l'install.
-          xcrun codesign -f -s - \
-            --entitlements "${{ github.workspace }}/INSTA/src/entitlements.xml" \
-            Payload/Instagram.app/Instagram
-          xcrun codesign -f -s - \
-            --entitlements "${{ github.workspace }}/INSTA/src/entitlements.xml" \
-            Payload/Instagram.app/Frameworks/Tweak.dylib
+          echo "Injection terminee"
 
       - name: Re-paqueter l'IPA
         run: |
