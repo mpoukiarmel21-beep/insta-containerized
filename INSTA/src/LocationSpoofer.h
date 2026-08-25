@@ -14,6 +14,7 @@
 + (void)applyHooks;
 + (void)presentPickerFrom:(UIViewController *)vc;
 + (CLLocation *)currentSpoofedLocation;
++ (void)invalidateCachedLocation;
 @end
 
 @interface LocationPickerViewController : UIViewController

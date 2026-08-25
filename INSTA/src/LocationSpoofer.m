@@ -11,16 +11,27 @@
 
 @implementation LocationSpoofer
 
+static CLLocation *gCachedLoc = nil;
+
 + (CLLocation *)currentSpoofedLocation {
     Container *c = [[ContainerManager shared] activeContainer];
     if (!c || !c.locationEnabled) return nil;
-    return [[CLLocation alloc] initWithCoordinate:CLLocationCoordinate2DMake(c.latitude, c.longitude)
-                                         altitude:0
-                               horizontalAccuracy:5
-                                 verticalAccuracy:5
-                                           course:-1
-                                            speed:-1
-                                        timestamp:[NSDate date]];
+    if (!gCachedLoc) {
+        gCachedLoc = [[CLLocation alloc] initWithCoordinate:CLLocationCoordinate2DMake(c.latitude, c.longitude)
+                                                   altitude:0
+                                         horizontalAccuracy:5
+                                           verticalAccuracy:5
+                                                     course:-1
+                                                      speed:-1
+                                                  timestamp:[NSDate date]];
+    }
+    return gCachedLoc;
+}
+
+// Invalide le cache apres activation/desactivation/deplacement dans le picker.
++ (void)invalidateCachedLocation {
+    [gCachedLoc release];
+    gCachedLoc = nil;
 }
 
 + (void)applyHooks {
@@ -63,7 +74,10 @@
 - (void)cz_setDelegate:(id<CLLocationManagerDelegate>)delegate {
     [self cz_setDelegate:delegate];
     if (!delegate) return;
+    // Les DEUX callbacks : le moderne ET le deprecie. Si l'app n'implemente que
+    // l'ancien (cas frequent), sans ce swizzle la position truquee n'arrive jamais.
     [LocationSpoofer swizzleDelegateCallback:[delegate class] sel:@selector(locationManager:didUpdateLocations:)];
+    [LocationSpoofer swizzleDelegateCallback:[delegate class] sel:@selector(locationManager:didUpdateToLocation:fromLocation:)];
 }
 
 @end
@@ -71,22 +85,35 @@
 @implementation LocationSpoofer (Delegate)
 
 + (void)swizzleDelegateCallback:(Class)dcls sel:(SEL)sel {
-    if (sel != @selector(locationManager:didUpdateLocations:)) return; // uniquement le callback moderne
+    BOOL isModern = (sel == @selector(locationManager:didUpdateLocations:));
+    BOOL isLegacy = (sel == @selector(locationManager:didUpdateToLocation:fromLocation:));
+    if (!isModern && !isLegacy) return;
     if (!class_respondsToSelector(dcls, sel)) return;
     if (objc_getAssociatedObject(dcls, sel)) return;
     Method m = class_getInstanceMethod(dcls, sel);
     if (!m) return;
 
     IMP old = method_getImplementation(m);
-    IMP repl = imp_implementationWithBlock(^(id del, CLLocationManager *mgr, NSArray *locs) {
-        CLLocation *sp = [LocationSpoofer currentSpoofedLocation];
-        NSArray *use = locs;
-        if (sp && locs.count > 0) use = @[sp];
-        void (*o)(id, SEL, id, NSArray *) = (void (*)(id, SEL, id, NSArray *))old;
-        o(del, sel, mgr, use);
-    });
+    IMP repl;
+    if (isModern) {
+        repl = imp_implementationWithBlock(^(id del, CLLocationManager *mgr, NSArray *locs) {
+            CLLocation *sp = [LocationSpoofer currentSpoofedLocation];
+            NSArray *use = locs;
+            if (sp && locs.count > 0) use = @[sp];
+            void (*o)(id, SEL, id, NSArray *) = (void (*)(id, SEL, id, NSArray *))old;
+            o(del, sel, mgr, use);
+        });
+    } else {
+        repl = imp_implementationWithBlock(^(id del, CLLocationManager *mgr, CLLocation *newL, CLLocation *oldL) {
+            CLLocation *sp = [LocationSpoofer currentSpoofedLocation];
+            void (*o)(id, SEL, id, id, id) = (void (*)(id, SEL, id, id, id))old;
+            o(del, sel, mgr, sp ?: newL, oldL);
+        });
+    }
     method_setImplementation(m, repl);
     objc_setAssociatedObject(dcls, sel, @(1), OBJC_ASSOCIATION_RETAIN);
+    [[TweakLogger shared] log:@"LocationSpoofer: delegate %@ branche (%@).",
+        NSStringFromClass(dcls), isModern ? @"didUpdateLocations" : @"didUpdateToLocation"];
 }
 
 @end
@@ -167,6 +194,7 @@
     c.longitude = self.picked.longitude;
     c.locationEnabled = YES;
     [[ContainerManager shared] updateContainer:c];
+    [LocationSpoofer invalidateCachedLocation];
     [[TweakLogger shared] log:@"Faux GPS activé pour %@ : %f,%f", c.name, c.latitude, c.longitude];
     [[NSNotificationCenter defaultCenter] postNotificationName:@"CZContainerizerRestoreOverlay" object:nil];
     [self dismissViewControllerAnimated:YES completion:nil];
@@ -176,6 +204,7 @@
     Container *c = [[ContainerManager shared] activeContainer];
     c.locationEnabled = NO;
     [[ContainerManager shared] updateContainer:c];
+    [LocationSpoofer invalidateCachedLocation];
     [[TweakLogger shared] log:@"Faux GPS désactivé pour %@", c.name];
     [[NSNotificationCenter defaultCenter] postNotificationName:@"CZContainerizerRestoreOverlay" object:nil];
     [self dismissViewControllerAnimated:YES completion:nil];
