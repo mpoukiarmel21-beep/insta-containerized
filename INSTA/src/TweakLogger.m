@@ -5,6 +5,8 @@
 
 #import "TweakLogger.h"
 
+static void containerizerUncaughtHandler(NSException *exception);
+
 @implementation TweakLogger {
     NSFileHandle *_handle;
     dispatch_queue_t _queue;
@@ -74,6 +76,38 @@
     NSArray *lines = [content componentsSeparatedByString:@"\n"];
     NSArray *tail = [lines subarrayWithRange:NSMakeRange(MAX(0,(int)lines.count-50),(int)MIN(lines.count,50))];
     return [tail componentsJoinedByString:@"\n"];
+}
+
+// Capture synchrone de la stack d'un crash (exception ObjC non capturee ->
+// le type le plus probable ici, vu que le tweak swizzle des methodes ObjC).
+// Synchronous + synchronizeFile pour ne pas perdre le log si l'app meurt juste apres.
+- (void)writeCrash:(NSString *)info {
+    if (!_handle) return;
+    @try {
+        NSString *stamp = [[NSDate date] description];
+        NSString *entry = [NSString stringWithFormat:@"[%@] [CRASH] %@\n", stamp, info];
+        [_handle writeData:[entry dataUsingEncoding:NSUTF8StringEncoding]];
+        [_handle synchronizeFile];
+    } @catch (NSException *e) {}
+}
+
+// Installe un handler d'exception ObjC non capturee qui dume la stack dans tweak.log.
+// A appeler une seule fois au lancement du tweak (Tweak.m).
++ (void)installCrashReporter {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSSetUncaughtExceptionHandler(&containerizerUncaughtHandler);
+    });
+}
+
+static void containerizerUncaughtHandler(NSException *exception) {
+    @autoreleasepool {
+        NSString *st = @"";
+        NSArray *stack = [exception callStackSymbols];
+        if (stack.count) st = [stack componentsJoinedByString:@"\n  "];
+        [[TweakLogger shared] writeCrash:[NSString stringWithFormat:@"name=%@ reason=%@\n  stack:\n  %@",
+                                          exception.name, exception.reason, st]];
+    }
 }
 
 @end

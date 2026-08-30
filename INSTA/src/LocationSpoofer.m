@@ -13,6 +13,17 @@
 + (void)swizzleDelegateCallback:(Class)dcls sel:(SEL)sel;
 @end
 
+// Registre des thunks IMP deja installes. Une cle unique (IMP, SEL) nous permet
+// de NE JAMAIS re-capter notre propre block comme "old" (sinon recursion infinie
+// -> stack overflow -> crash). C'est le correctif du crash a la saisie du nom
+// pendant la creation de compte Instagram, quand le wizard active la geoloc.
+static NSMutableSet *gInstalledThunks = nil;
+static dispatch_once_t gThunkOnce;
+
+static void ensureThunkRegistry(void) {
+    dispatch_once(&gThunkOnce, ^{ gInstalledThunks = [[NSMutableSet alloc] init]; });
+}
+
 @implementation LocationSpoofer
 
 static CLLocation *gCachedLoc = nil;
@@ -78,10 +89,15 @@ static CLLocation *gCachedLoc = nil;
 - (void)cz_setDelegate:(id<CLLocationManagerDelegate>)delegate {
     [self cz_setDelegate:delegate];
     if (!delegate) return;
-    // Les DEUX callbacks : le moderne ET le deprecie. Si l'app n'implemente que
-    // l'ancien (cas frequent), sans ce swizzle la position truquee n'arrive jamais.
-    [LocationSpoofer swizzleDelegateCallback:[delegate class] sel:@selector(locationManager:didUpdateLocations:)];
-    [LocationSpoofer swizzleDelegateCallback:[delegate class] sel:@selector(locationManager:didUpdateToLocation:fromLocation:)];
+    @try {
+        // Les DEUX callbacks : le moderne ET le deprecie. Si l'app n'implemente que
+        // l'ancien (cas frequent), sans ce swizzle la position truquee n'arrive jamais.
+        [LocationSpoofer swizzleDelegateCallback:[delegate class] sel:@selector(locationManager:didUpdateLocations:)];
+        [LocationSpoofer swizzleDelegateCallback:[delegate class] sel:@selector(locationManager:didUpdateToLocation:fromLocation:)];
+    } @catch (NSException *e) {
+        [[TweakLogger shared] logError:@"LocationSpoofer: echec swizzle delegate %@ err=%@",
+            NSStringFromClass([delegate class]), e];
+    }
 }
 
 @end
@@ -89,6 +105,7 @@ static CLLocation *gCachedLoc = nil;
 @implementation LocationSpoofer (Delegate)
 
 + (void)swizzleDelegateCallback:(Class)dcls sel:(SEL)sel {
+    ensureThunkRegistry();
     BOOL isModern = (sel == @selector(locationManager:didUpdateLocations:));
     BOOL isLegacy = (sel == @selector(locationManager:didUpdateToLocation:fromLocation:));
     if (!isModern && !isLegacy) return;
@@ -97,25 +114,35 @@ static CLLocation *gCachedLoc = nil;
     Method m = class_getInstanceMethod(dcls, sel);
     if (!m) return;
 
-    IMP old = method_getImplementation(m);
+    IMP current = method_getImplementation(m);
+
+    // Anti-recursion : si ce method est DEJA notre thunk (classe mere swizzlee
+    // heritee par une sous-classe, ou gros doublon), ne JAMAIS re-capter notre
+    // propre IMP comme "old". On saute -> plus de chainage de soi-meme.
+    if ([gInstalledThunks containsObject:@((uintptr_t)current)]) return;
+
+    IMP old = current;
     IMP repl;
     if (isModern) {
         repl = imp_implementationWithBlock(^(id del, CLLocationManager *mgr, NSArray *locs) {
-            CLLocation *sp = [LocationSpoofer currentSpoofedLocation];
+            __block CLLocation *sp = nil;
+            @try { sp = [LocationSpoofer currentSpoofedLocation]; } @catch (NSException *e) { sp = nil; }
             NSArray *use = locs;
             if (sp && locs.count > 0) use = @[sp];
             void (*o)(id, SEL, id, NSArray *) = (void (*)(id, SEL, id, NSArray *))old;
-            o(del, sel, mgr, use);
+            if (o) { @try { o(del, sel, mgr, use); } @catch (NSException *e) {} }
         });
     } else {
         repl = imp_implementationWithBlock(^(id del, CLLocationManager *mgr, CLLocation *newL, CLLocation *oldL) {
-            CLLocation *sp = [LocationSpoofer currentSpoofedLocation];
+            __block CLLocation *sp = nil;
+            @try { sp = [LocationSpoofer currentSpoofedLocation]; } @catch (NSException *e) { sp = nil; }
             void (*o)(id, SEL, id, id, id) = (void (*)(id, SEL, id, id, id))old;
-            o(del, sel, mgr, sp ?: newL, oldL);
+            if (o) { @try { o(del, sel, mgr, sp ?: newL, oldL); } @catch (NSException *e) {} }
         });
     }
     method_setImplementation(m, repl);
     objc_setAssociatedObject(dcls, sel, @(1), OBJC_ASSOCIATION_RETAIN);
+    [gInstalledThunks addObject:@((uintptr_t)repl)];
     [[TweakLogger shared] log:@"LocationSpoofer: delegate %@ branche (%@).",
         NSStringFromClass(dcls), isModern ? @"didUpdateLocations" : @"didUpdateToLocation"];
 }

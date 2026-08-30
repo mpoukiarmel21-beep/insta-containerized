@@ -14,6 +14,7 @@
 
 __attribute__((constructor)) static void tweak_init(void) {
     [[TweakLogger shared] log:@"Containerizer: chargement de la dylib."];
+    [TweakLogger installCrashReporter];
 
     [[NSNotificationCenter defaultCenter]
         addObserverForName:UIApplicationDidFinishLaunchingNotification
